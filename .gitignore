@@ -1,0 +1,3 @@
+.venv/
+dist/
+nstdata_ai_crawl.egg-info/
