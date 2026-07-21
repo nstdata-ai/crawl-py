@@ -9,7 +9,6 @@ from nstdata_ai_crawl import (
     ActionDto,
     CookieDto,
     Format,
-    Proxy,
     TaskType,
     TaskStatus,
 )
@@ -106,12 +105,11 @@ def example_content_filter(client: NstDataClient):
     print(res.data.get_markdown())
 
 
-# Scenario 7: Specify proxy type and exit country
-def example_proxy_and_country(client: NstDataClient):
+# Scenario 7: Specify proxy exit country
+def example_country(client: NstDataClient):
     res = client.submit_scrape_task_sync(ScrapeRequestDto(
         url="https://example.com/",
         formats=[Format.MARKDOWN],
-        proxy=Proxy.DATACENTER,  # Proxy.RESIDENTIAL can also be used (default)
         country="us",
         timeout=60000,
     ))
@@ -163,7 +161,6 @@ def example_crawl(client: NstDataClient):
         ignoreQuery=True,  # Ignore URL query parameters when expanding links to avoid duplicate pages
         formats=[Format.MARKDOWN],
         onlyMainContent=True,
-        proxy=Proxy.RESIDENTIAL,
         timeout=60000,
     ))
     print("crawl task id:", submitted.id)
@@ -206,7 +203,7 @@ def main():
         # example_browser_actions(client)
         # example_cookies_and_headers(client)
         # example_content_filter(client)
-        # example_proxy_and_country(client)
+        # example_country(client)
         # example_async_polling(client)
         # example_links_and_raw_data(client)
         # example_crawl(client)

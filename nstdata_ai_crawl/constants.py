@@ -27,8 +27,3 @@ class ActionType:
     EXECUTE = "execute"                                      # run JavaScript on the page; requires execute
     SCREENSHOT = "screenshot"                                # capture screenshot; fullScreenshot / particularScreenshot / viewport
     WAIT_FOR_REQUEST_COMPLETION = "waitForRequestCompletion" # wait for a matching network response; requires urlPattern
-
-class Proxy:
-    """Proxy types for ScrapeRequestDto.proxy (defaults to residential when unset)."""
-    RESIDENTIAL = "residential"
-    DATACENTER = "datacenter"

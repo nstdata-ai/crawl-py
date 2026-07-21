@@ -1,5 +1,5 @@
 from .client import NstDataClient
-from .constants import Format, TaskType, TaskStatus, ActionType, Proxy
+from .constants import Format, TaskType, TaskStatus, ActionType
 from .models import (
     CookieDto,
     ActionDto,
@@ -21,7 +21,6 @@ __all__ = [
     "TaskType",
     "TaskStatus",
     "ActionType",
-    "Proxy",
     "CookieDto",
     "ActionDto",
     "JsRenderDto",

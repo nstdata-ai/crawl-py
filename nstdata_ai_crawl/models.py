@@ -111,7 +111,6 @@ class ScrapeRequestDto:
     jsRender: Optional[JsRenderDto] = None # JavaScript rendering instructions
     mobile: Optional[bool] = None # Whether to emulate a mobile device
     onlyMainContent: Optional[bool] = None # Automatically extract main article content and remove noise
-    proxy: Optional[str] = None # Proxy type (e.g., 'datacenter', 'residential')
     removeSelectors: Optional[List[str]] = None # CSS selectors for elements to remove (e.g., ['.ads', '#popup'])
     targetSelector: Optional[str] = None # CSS selector to restrict extraction to a specific element
     timeout: Optional[float] = None # Request timeout in milliseconds
@@ -138,7 +137,6 @@ class CrawlRequestDto:
     maxPages: Optional[int] = None # Maximum number of pages to crawl
     mobile: Optional[bool] = None # Whether to emulate a mobile device
     onlyMainContent: Optional[bool] = None # Automatically extract main article content
-    proxy: Optional[str] = None # Proxy type
     removeSelectors: Optional[List[str]] = None # CSS selectors for elements to remove
     targetSelector: Optional[str] = None # CSS selector to restrict extraction
     timeout: Optional[float] = None # Request timeout in milliseconds
@@ -260,5 +258,4 @@ class CrawlPageListResponseDto:
     nextCursor: Optional[str] = None # Cursor for fetching the next page of results
     prevCursor: Optional[str] = None # Cursor for fetching the previous page of results
     total: Optional[int] = None # Total number of pages
-
 
