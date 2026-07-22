@@ -33,19 +33,19 @@ class NstDataClient:
     def _unwrap(self, resp: requests.Response) -> dict:
         resp.raise_for_status()
         data = resp.json()
-        if isinstance(data, dict) and "err" in data and "code" in data:
-            if data.get("err") or data.get("code") != 200:
-                raise Exception(f"API error: code={data.get('code')} msg={data.get('msg')}")
-            return data.get("data") or {}
-        return data
+        if not isinstance(data, dict) or "err" not in data or "code" not in data:
+            raise Exception("API error: invalid response envelope")
+        if data.get("err") or data.get("code") != 200:
+            raise Exception(f"API error: code={data.get('code')} msg={data.get('msg')}")
+        return data.get("data") or {}
 
     def submit_scrape_task(self, req: ScrapeRequestDto) -> SubmitResponseDto:
         if not req.url:
             raise ValueError("url is required")
         if not req.formats:
             raise ValueError("formats must contain at least one format")
-        url = f"{self.base_url}/api/v1/crawl/scrape/submit"
-        resp = self.session.post(url, json=req.to_dict(), headers=self._get_headers())
+        url = f"{self.base_url}/api/v1/crawl/scrape"
+        resp = self.session.post(url, params={"async": "true"}, json=req.to_dict(), headers=self._get_headers())
         data = self._unwrap(resp)
         return _build(SubmitResponseDto, data)
 
@@ -54,7 +54,7 @@ class NstDataClient:
             raise ValueError("url is required")
         if not req.formats:
             raise ValueError("formats must contain at least one format")
-        url = f"{self.base_url}/api/v1/crawl/scrape/submit-sync"
+        url = f"{self.base_url}/api/v1/crawl/scrape"
         resp = self.session.post(url, json=req.to_dict(), headers=self._get_headers())
         data = self._unwrap(resp)
         
@@ -74,19 +74,19 @@ class NstDataClient:
             raise ValueError("url is required")
         if not req.formats:
             raise ValueError("formats must contain at least one format")
-        url = f"{self.base_url}/api/v1/crawl/submit"
+        url = f"{self.base_url}/api/v1/crawl"
         resp = self.session.post(url, json=req.to_dict(), headers=self._get_headers())
         data = self._unwrap(resp)
         return _build(SubmitResponseDto, data)
 
     def get_crawl_status(self, crawl_id: str) -> CrawlStatusResponseDto:
-        url = f"{self.base_url}/api/v1/crawl/status/{crawl_id}"
+        url = f"{self.base_url}/api/v1/crawl/{crawl_id}"
         resp = self.session.get(url, headers=self._get_headers())
         data = self._unwrap(resp)
         return _build(CrawlStatusResponseDto, data)
 
     def list_crawl_pages(self, crawl_id: str, after_cursor: Optional[str] = None, before_cursor: Optional[str] = None, limit: Optional[int] = None) -> CrawlPageListResponseDto:
-        url = f"{self.base_url}/api/v1/crawl/pages/{crawl_id}"
+        url = f"{self.base_url}/api/v1/crawl/{crawl_id}/pages"
         params = {}
         if after_cursor is not None:
             params["after_cursor"] = after_cursor
@@ -116,7 +116,7 @@ class NstDataClient:
         return _build(CrawlPageListResponseDto, data)
 
     def get_scrape_task_result(self, task_id: str) -> TaskResultResponseDto:
-        url = f"{self.base_url}/api/v1/crawl/scrape/result/{task_id}"
+        url = f"{self.base_url}/api/v1/crawl/scrape/{task_id}"
         resp = self.session.get(url, headers=self._get_headers())
         data = self._unwrap(resp)
         

@@ -8,6 +8,7 @@ from nstdata_ai_crawl import (
     JsRenderDto,
     ActionDto,
     CookieDto,
+    ProxyDto,
     Format,
     TaskType,
     TaskStatus,
@@ -110,7 +111,7 @@ def example_country(client: NstDataClient):
     res = client.submit_scrape_task_sync(ScrapeRequestDto(
         url="https://example.com/",
         formats=[Format.MARKDOWN],
-        country="us",
+        proxy=ProxyDto(country="us"),
         timeout=60000,
     ))
     print(res.data.get_markdown())

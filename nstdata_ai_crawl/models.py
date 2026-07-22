@@ -23,6 +23,10 @@ class CookieDto:
     value: Optional[str] = None # Value of the cookie
 
 @dataclass
+class ProxyDto:
+    country: Optional[str] = None # Proxy exit country code (e.g., 'us', 'gb')
+
+@dataclass
 class ActionDto:
     execute: Optional[str] = None # JavaScript code snippet to execute
     fullScreenshot: Optional[bool] = None # Set to true to capture a full-page screenshot
@@ -103,7 +107,7 @@ class JsRenderDto:
 class ScrapeRequestDto:
     url: str # The URL to scrape
     cookies: Optional[List[CookieDto]] = None # Optional cookies to include in the request
-    country: Optional[str] = None # Country code for proxy location (e.g., 'us', 'gb')
+    proxy: Optional[ProxyDto] = None # Proxy settings, such as exit country
     excludeTags: Optional[List[str]] = None # HTML tags to remove entirely (e.g., ['nav', 'footer'])
     formats: Optional[List[str]] = None # Desired output formats (e.g., ['markdown', 'html', 'links'])
     headers: Optional[Dict[str, str]] = None # Custom HTTP headers
@@ -124,7 +128,7 @@ class CrawlRequestDto:
     (maxDepth, maxPages, includeUrls, excludeUrls, ignoreQuery)."""
     url: str # The starting URL to crawl
     cookies: Optional[List[CookieDto]] = None # Optional cookies to include in the request
-    country: Optional[str] = None # Country code for proxy location
+    proxy: Optional[ProxyDto] = None # Proxy settings, such as exit country
     excludeTags: Optional[List[str]] = None # HTML tags to remove entirely
     excludeUrls: Optional[List[str]] = None # Regex patterns to exclude specific URLs from crawling
     formats: Optional[List[str]] = None # Desired output formats (e.g., ['markdown', 'html'])
@@ -258,4 +262,3 @@ class CrawlPageListResponseDto:
     nextCursor: Optional[str] = None # Cursor for fetching the next page of results
     prevCursor: Optional[str] = None # Cursor for fetching the previous page of results
     total: Optional[int] = None # Total number of pages
-
