@@ -1,0 +1,4 @@
+include README.md README_zh.md CHANGELOG.md CONTRIBUTING.md LICENSE main.py
+recursive-include tests *.py
+recursive-include scripts *.py
+global-exclude *.pyc

@@ -1,4 +1,4 @@
-from .client import NstDataClient
+from .client import NstDataClient, NstDataApiError
 from .constants import Format, TaskType, TaskStatus, ActionType
 from .models import (
     CookieDto,
@@ -18,6 +18,7 @@ from .models import (
 
 __all__ = [
     "NstDataClient",
+    "NstDataApiError",
     "Format",
     "TaskType",
     "TaskStatus",

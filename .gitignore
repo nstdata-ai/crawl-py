@@ -1,3 +1,7 @@
 .venv/
 dist/
 nstdata_ai_crawl.egg-info/
+
+build/
+__pycache__/
+*.pyc

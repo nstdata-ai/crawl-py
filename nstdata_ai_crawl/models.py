@@ -31,15 +31,15 @@ class ActionDto:
     execute: Optional[str] = None # JavaScript code snippet to execute
     fullScreenshot: Optional[bool] = None # Set to true to capture a full-page screenshot
     key: Optional[str] = None # Keyboard key to press
-    milliseconds: Optional[float] = None # Milliseconds to wait
+    milliseconds: Optional[int] = None # Milliseconds to wait
     particularScreenshot: Optional[str] = None # CSS selector of an element to screenshot
     selector: Optional[str] = None # CSS selector for the action target
     text: Optional[str] = None # Text to type into an input field
     type: Optional[str] = None # Type of action (e.g., 'click', 'wait', 'fill')
-    urlPattern: Optional[str] = None # URL pattern to wait for (regex support)
+    urlPattern: Optional[str] = None # Service-native network-wait pattern
     waitSelector: Optional[str] = None # CSS selector to wait for
-    x: Optional[float] = None # X coordinate for scroll/click
-    y: Optional[float] = None # Y coordinate for scroll/click
+    x: Optional[int] = None # X coordinate in pixels
+    y: Optional[int] = None # Y coordinate in pixels
 
     # Factory helpers: each one sets `type` plus the fields that action
     # requires, so callers don't need to remember which fields pair with
@@ -51,12 +51,12 @@ class ActionDto:
         return cls(type=ActionType.CLICK, selector=selector)
 
     @classmethod
-    def wait(cls, milliseconds: float) -> "ActionDto":
+    def wait(cls, milliseconds: int) -> "ActionDto":
         """Pause for a fixed time in milliseconds."""
         return cls(type=ActionType.WAIT, milliseconds=milliseconds)
 
     @classmethod
-    def wait_selector(cls, selector: str, timeout_ms: Optional[float] = None) -> "ActionDto":
+    def wait_selector(cls, selector: str, timeout_ms: Optional[int] = None) -> "ActionDto":
         """Wait until the element matched by selector is visible."""
         return cls(type=ActionType.WAIT_SELECTOR, selector=selector, milliseconds=timeout_ms)
 
@@ -92,15 +92,14 @@ class ActionDto:
         return cls(type=ActionType.SCREENSHOT, fullScreenshot=full or None, particularScreenshot=selector)
 
     @classmethod
-    def wait_for_request(cls, url_pattern: str, timeout_ms: Optional[float] = None) -> "ActionDto":
-        """Wait for a network response whose URL matches url_pattern
-        (supports * wildcard)."""
+    def wait_for_request(cls, url_pattern: str, timeout_ms: Optional[int] = None) -> "ActionDto":
+        """Build a network-wait action; the service interprets url_pattern."""
         return cls(type=ActionType.WAIT_FOR_REQUEST_COMPLETION, urlPattern=url_pattern, milliseconds=timeout_ms)
 
 @dataclass
 class JsRenderDto:
     actions: Optional[List[ActionDto]] = None # List of browser actions to perform
-    waitFor: Optional[float] = None # Global wait time in milliseconds
+    waitFor: Optional[int] = None # Global wait time, 1000–30000 milliseconds
     waitForSelector: Optional[str] = None # CSS selector to wait for before proceeding
 
 @dataclass
@@ -111,13 +110,13 @@ class ScrapeRequestDto:
     excludeTags: Optional[List[str]] = None # HTML tags to remove entirely (e.g., ['nav', 'footer'])
     formats: Optional[List[str]] = None # Desired output formats (e.g., ['markdown', 'html', 'links'])
     headers: Optional[Dict[str, str]] = None # Custom HTTP headers
-    includeTags: Optional[List[str]] = None # Tags to keep. WARNING: strips all other tags (keeping text), which may break markdown
+    includeTags: Optional[List[str]] = None # Included HTML tags; extraction behavior is service-defined (keeping text), which may break markdown
     jsRender: Optional[JsRenderDto] = None # JavaScript rendering instructions
     mobile: Optional[bool] = None # Whether to emulate a mobile device
     onlyMainContent: Optional[bool] = None # Automatically extract main article content and remove noise
     removeSelectors: Optional[List[str]] = None # CSS selectors for elements to remove (e.g., ['.ads', '#popup'])
     targetSelector: Optional[str] = None # CSS selector to restrict extraction to a specific element
-    timeout: Optional[float] = None # Request timeout in milliseconds
+    timeout: Optional[int] = None # Server timeout, 1000–60000 milliseconds
 
     def to_dict(self) -> Dict[str, Any]:
         return _to_clean_dict(self)
@@ -130,12 +129,12 @@ class CrawlRequestDto:
     cookies: Optional[List[CookieDto]] = None # Optional cookies to include in the request
     proxy: Optional[ProxyDto] = None # Proxy settings, such as exit country
     excludeTags: Optional[List[str]] = None # HTML tags to remove entirely
-    excludeUrls: Optional[List[str]] = None # Regex patterns to exclude specific URLs from crawling
+    excludeUrls: Optional[List[str]] = None # Service-native URL filters, forwarded unchanged
     formats: Optional[List[str]] = None # Desired output formats (e.g., ['markdown', 'html'])
     headers: Optional[Dict[str, str]] = None # Custom HTTP headers
     ignoreQuery: Optional[bool] = None # Whether to ignore URL query parameters for deduplication
-    includeTags: Optional[List[str]] = None # Tags to keep. WARNING: strips all other tags
-    includeUrls: Optional[List[str]] = None # Regex patterns to only crawl matching URLs
+    includeTags: Optional[List[str]] = None # Included HTML tags; extraction behavior is service-defined
+    includeUrls: Optional[List[str]] = None # Service-native URL filters, forwarded unchanged
     jsRender: Optional[JsRenderDto] = None # JavaScript rendering instructions
     maxDepth: Optional[int] = None # Maximum depth of links to follow
     maxPages: Optional[int] = None # Maximum number of pages to crawl
@@ -143,7 +142,7 @@ class CrawlRequestDto:
     onlyMainContent: Optional[bool] = None # Automatically extract main article content
     removeSelectors: Optional[List[str]] = None # CSS selectors for elements to remove
     targetSelector: Optional[str] = None # CSS selector to restrict extraction
-    timeout: Optional[float] = None # Request timeout in milliseconds
+    timeout: Optional[int] = None # Server timeout, 1000–60000 milliseconds
 
     def to_dict(self) -> Dict[str, Any]:
         return _to_clean_dict(self)
@@ -166,13 +165,14 @@ class PageMetadataDto:
 
 @dataclass
 class ScrapeDataDto:
-    htmlRef: Optional[str] = None # Reference link to fetch the HTML content
+    htmlRef: Optional[str] = None # Opaque storage reference for the HTML content
     links: Optional[List[str]] = None # List of extracted hyperlinks
-    markdownRef: Optional[str] = None # Reference link to fetch the Markdown content
+    markdownRef: Optional[str] = None # Opaque storage reference for the Markdown content
     metadata: Optional[PageMetadataDto] = None # Extracted page metadata and SEO tags
-    pdfRef: Optional[str] = None # Reference link to fetch the PDF
-    rawDataRef: Optional[str] = None # Reference link to fetch the raw data
-    screenshotRef: Optional[str] = None # Reference link to fetch the screenshot
+    pdfRef: Optional[str] = None # Opaque storage reference for the PDF
+    rawDataRef: Optional[str] = None # Opaque storage reference for the raw data
+    screenshotRef: Optional[str] = None # Opaque storage reference for the screenshot
+    truncated: Optional[bool] = None # Service truncation flag; absence is unknown
 
 
     _html: Optional[str] = field(default=None, repr=False, init=False)
@@ -182,43 +182,43 @@ class ScrapeDataDto:
     _screenshot: Optional[bytes] = field(default=None, repr=False, init=False)
     _client: Any = field(default=None, repr=False, init=False)
 
-    def get_html(self) -> Optional[str]:
+    def get_html(self, *, timeout=None) -> Optional[str]:
         if self._html is not None:
             return self._html
         if self.htmlRef and self._client:
-            self._html = self._client.read_storage(self.htmlRef).decode('utf-8')
+            self._html = self._client._read_text_storage(self.htmlRef, timeout=timeout)
             return self._html
         return None
 
-    def get_markdown(self) -> Optional[str]:
+    def get_markdown(self, *, timeout=None) -> Optional[str]:
         if self._markdown is not None:
             return self._markdown
         if self.markdownRef and self._client:
-            self._markdown = self._client.read_storage(self.markdownRef).decode('utf-8')
+            self._markdown = self._client._read_text_storage(self.markdownRef, timeout=timeout)
             return self._markdown
         return None
 
-    def get_pdf(self) -> Optional[bytes]:
+    def get_pdf(self, *, timeout=None) -> Optional[bytes]:
         if self._pdf is not None:
             return self._pdf
         if self.pdfRef and self._client:
-            self._pdf = self._client.read_storage(self.pdfRef)
+            self._pdf = self._client.read_storage(self.pdfRef, timeout=timeout)
             return self._pdf
         return None
 
-    def get_raw_data(self) -> Optional[bytes]:
+    def get_raw_data(self, *, timeout=None) -> Optional[bytes]:
         if self._rawData is not None:
             return self._rawData
         if self.rawDataRef and self._client:
-            self._rawData = self._client.read_storage(self.rawDataRef)
+            self._rawData = self._client.read_storage(self.rawDataRef, timeout=timeout)
             return self._rawData
         return None
 
-    def get_screenshot(self) -> Optional[bytes]:
+    def get_screenshot(self, *, timeout=None) -> Optional[bytes]:
         if self._screenshot is not None:
             return self._screenshot
         if self.screenshotRef and self._client:
-            self._screenshot = self._client.read_storage(self.screenshotRef)
+            self._screenshot = self._client.read_storage(self.screenshotRef, timeout=timeout)
             return self._screenshot
         return None
 
@@ -230,6 +230,7 @@ class TaskResultResponseDto:
     errorMessage: Optional[str] = None # Detailed error message
     status: Optional[str] = None # Current status (e.g., 'completed', 'failed')
     success: Optional[bool] = None # True if the task executed successfully
+    id: Optional[str] = None # Service task ID; not a sync-result queryability guarantee
 
 @dataclass
 class CrawlStatusResponseDto:
