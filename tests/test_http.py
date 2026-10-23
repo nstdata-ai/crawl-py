@@ -80,6 +80,14 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(caught.exception.status_code, 302)
         self.assertEqual(len(self.rows), 1)
 
+    def test_header_encoding_error_is_safe_before_any_http_request(self):
+        self.client.token = 'fixture-\u2603-private-token'
+        with self.assertRaises(NstDataApiError) as caught:
+            self.client.get_crawl_status('task')
+        self.assertEqual(caught.exception.kind, 'transport')
+        self.assertNotIn('private-token', str(caught.exception))
+        self.assertEqual(self.rows, [])
+
     def test_body_read_inactivity_is_timeout_without_retry(self):
         with self.assertRaises(NstDataApiError) as caught:
             self.client.get_crawl_status('slow', timeout=(0.03, 0.03))

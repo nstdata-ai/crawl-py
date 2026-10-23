@@ -4,6 +4,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import Mock, patch
 from nstdata_ai_crawl import NstDataApiError, ScrapeDataDto, TaskResultResponseDto, CrawlStatusResponseDto, CrawlPageItemResponseDto
+from test_client import Response
 
 spec = importlib.util.spec_from_file_location('crawl_examples', Path(__file__).resolve().parents[1] / 'main.py')
 examples = importlib.util.module_from_spec(spec)
@@ -11,6 +12,50 @@ spec.loader.exec_module(examples)
 
 
 class ExamplesTests(unittest.TestCase):
+    def test_guide_programs_execute_bounded_workflows_with_actual_client(self):
+        for name in ('guide.md', 'guide_zh.md'):
+            source = Path(__file__).resolve().parents[1] / 'docs' / name
+            blocks = re.findall(r'```python\n([\s\S]*?)```', source.read_text())
+            self.assertEqual(len(blocks), 3)
+            for index, code in enumerate(blocks):
+                with self.subTest(document=name, workflow=index):
+                    responses = []
+                    if index == 0:
+                        responses = [Response({'id': 'saved-task', 'status': 'processing'}),
+                                     Response({'status': 'completed', 'success': True,
+                                               'data': {'markdownRef': 'returned-ref'}}),
+                                     Response(raw=b'')]
+                    elif index == 1:
+                        responses = [Response({'id': 'saved-crawl', 'status': 'scraping'}),
+                                     Response({'status': 'completed', 'total': 2, 'completed': 1, 'failed': 1}),
+                                     Response({'data': [
+                                         {'url': 'https://target.invalid/', 'status': 'completed',
+                                          'success': True, 'data': {'markdownRef': 'returned-ref'}},
+                                         {'url': 'https://target.invalid/failed', 'status': 'failed', 'success': False},
+                                     ]}), Response(raw=b'# Fixture')]
+                    with patch.dict('os.environ', {'NSTDATA_API_TOKEN': 'fixture-token'}), \
+                            patch('nstdata_ai_crawl.client.requests.Session.request', side_effect=responses) as request, \
+                            patch('builtins.print'):
+                        namespace = {}
+                        exec(compile(code, name, 'exec'), namespace)
+                    self.assertTrue(all(response.closed for response in responses))
+                    if index < 2:
+                        self.assertEqual(request.call_count, len(responses))
+                        self.assertEqual(sum(call.args[0] == 'POST' for call in request.call_args_list), 1)
+                        self.assertTrue(all(call.args[0] == 'GET' for call in request.call_args_list[1:]))
+                        self.assertEqual(request.call_args.kwargs['params'], {'st': 'returned-ref'})
+                        self.assertEqual(request.call_args.kwargs['headers']['x-api-key'], 'fixture-token')
+                    if index == 0:
+                        self.assertEqual(namespace['markdown'], '')
+                        self.assertTrue(request.call_args_list[1].args[1].endswith('/scrape/saved-task'))
+                    elif index == 1:
+                        self.assertEqual(request.call_args_list[0].kwargs['json']['maxPages'], 2)
+                        self.assertFalse(request.call_args_list[0].kwargs['json']['onlyMainContent'])
+                        self.assertEqual(request.call_args_list[2].kwargs['params'], {'limit': 2})
+                    else:
+                        request.assert_not_called()
+                        self.assertEqual(namespace['request'].to_dict()['jsRender']['actions'][0]['type'], 'waitSelector')
+
     def test_missing_token_never_creates_client(self):
         with patch.object(examples, 'TOKEN', None), patch.object(examples, 'NstDataClient') as client:
             with self.assertRaises(ValueError):

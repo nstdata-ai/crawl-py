@@ -8,11 +8,23 @@ import sys
 import tarfile
 import tempfile
 from zipfile import ZipFile
+from urllib.parse import urljoin
 
 root = Path(__file__).resolve().parents[1]
 version = '1.0.0'
 library_files = ['nstdata_ai_crawl/' + name for name in ('__init__.py', 'client.py', 'constants.py', 'models.py')]
 readme = (root / 'README.md').read_text(encoding='utf-8')
+documentation = ['README.md', 'README_zh.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'SECURITY.md',
+                 'docs/guide.md', 'docs/guide_zh.md']
+
+
+def check_description(description):
+    links = r'\[[^\]\n]+\]\(([^)\n]+)\)'
+    assert re.findall(links, description) == [urljoin('https://github.com/nstdata-ai/crawl-py/blob/main/README.md', link)
+                                             for link in re.findall(links, readme)]
+    assert re.sub(links, '[link]', description).strip() == re.sub(links, '[link]', readme).strip()
+
+
 commands = []
 examples = []
 for name in ('README.md', 'README_zh.md'):
@@ -22,6 +34,20 @@ for name in ('README.md', 'README_zh.md'):
     examples.append(re.findall(r'```python\n([\s\S]*?)```', text))
 assert commands[0] == commands[1], 'Bilingual install commands differ'
 assert examples[0] == examples[1], 'Bilingual Python examples differ'
+assert re.findall(r'```python\n([\s\S]*?)```', (root / 'docs/guide.md').read_text()) == \
+       re.findall(r'```python\n([\s\S]*?)```', (root / 'docs/guide_zh.md').read_text()), 'Bilingual guide programs differ'
+for name in documentation:
+    source = root / name
+    for target in re.findall(r'\[[^\]\n]+\]\(([^)\n]+)\)', source.read_text()):
+        if re.match(r'^[a-z]+:', target):
+            continue
+        relative, _, anchor = target.partition('#')
+        linked = source.parent / relative if relative else source
+        assert linked.is_file(), 'Missing documentation link: ' + target
+        if anchor:
+            slugs = [re.sub(r'[^\w -]', '', heading.lower()).replace(' ', '-')
+                     for heading in re.findall(r'^#+ (.+)$', linked.read_text(), re.MULTILINE)]
+            assert anchor in slugs, 'Missing documentation anchor: ' + target
 assert '## ' + version + ' — Unreleased' in (root / 'CHANGELOG.md').read_text(), 'CHANGELOG version mismatch'
 folder = Path(sys.argv[1] if len(sys.argv) > 1 else 'dist')
 wheels = list(folder.glob('*.whl'))
@@ -40,7 +66,7 @@ with ZipFile(wheels[0]) as archive:
     assert metadata['License-Expression'] == 'MIT'
     assert metadata.get_all('License-File') == ['LICENSE']
     assert metadata.get_all('Requires-Dist') == ['requests<3,>=2.34.2']
-    assert metadata.get_payload(decode=True).decode('utf-8').strip() == readme.strip(), 'Wheel README mismatch'
+    check_description(metadata.get_payload(decode=True).decode('utf-8'))
     assert any(x.endswith('/LICENSE') for x in names)
 with tarfile.open(sources[0]) as archive:
     names = archive.getnames()
@@ -55,9 +81,9 @@ with tarfile.open(sources[0]) as archive:
     assert metadata['License-Expression'] == 'MIT'
     assert metadata.get_all('License-File') == ['LICENSE']
     assert metadata.get_all('Requires-Dist') == ['requests<3,>=2.34.2']
-    assert metadata.get_payload(decode=True).decode('utf-8').strip() == readme.strip(), 'sdist README mismatch'
+    check_description(metadata.get_payload(decode=True).decode('utf-8'))
     for name in library_files + ['main.py', 'scripts/check-package.py', 'tests/test_client.py', 'tests/test_examples.py', 'tests/test_http.py',
-                                 'README.md', 'README_zh.md', 'CHANGELOG.md', 'CONTRIBUTING.md']:
+                                 *documentation]:
         assert archive.extractfile(prefix + name).read() == (root / name).read_bytes(), 'sdist source/document mismatch: ' + name
 with tempfile.TemporaryDirectory(prefix='nstdata-crawl-wheel-') as temporary:
     checks = Path(temporary)
@@ -67,6 +93,7 @@ with tempfile.TemporaryDirectory(prefix='nstdata-crawl-wheel-') as temporary:
         '--no-index', '--no-deps', '--no-compile', '--target', str(installed), str(wheels[0].resolve()),
     ], cwd=checks, check=True)
     shutil.copytree(root / 'tests', checks / 'tests', ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+    shutil.copytree(root / 'docs', checks / 'docs')
     for name in ('main.py', 'README.md', 'README_zh.md'):
         shutil.copyfile(root / name, checks / name)
     subprocess.run([sys.executable, '-I', '-B', '-c', '''

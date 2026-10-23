@@ -230,6 +230,42 @@ class ClientTests(unittest.TestCase):
             self.assertNotIn('secret-token', str(error.exception))
             self.assertTrue(response.closed)
 
+    def test_response_scalars_are_checked_before_exposing_typed_results(self):
+        request = ScrapeRequestDto('https://target.invalid', formats=['markdown'])
+        cases = [
+            (lambda: self.client.submit_scrape_task(request), {'id': 42}),
+            (lambda: self.client.submit_crawl_task(CrawlRequestDto('https://target.invalid', formats=['markdown'])),
+             {'cached': 0}),
+            (lambda: self.client.submit_scrape_task_sync(request), {'success': 'false'}),
+            (lambda: self.client.get_scrape_task_result('task'), {'status': {'private-response': True}}),
+            (lambda: self.client.get_crawl_status('crawl'), {'completed': True}),
+            (lambda: self.client.get_crawl_status('crawl'), {'total': '10'}),
+            (lambda: self.client.get_crawl_status('crawl'), {'code': False}),
+            (lambda: self.client.list_crawl_pages('crawl'), {'nextCursor': 42}),
+            (lambda: self.client.list_crawl_pages('crawl'), {'data': [{'taskId': False}]}),
+            (lambda: self.client.list_crawl_pages('crawl'), {'data': [{'url': []}]}),
+            (lambda: self.client.list_crawl_pages('crawl'), {'data': [{'success': 1}]}),
+        ]
+        for invoke, payload in cases:
+            with self.subTest(payload=payload):
+                self.request.reset_mock()
+                response = self.reply(payload)
+                with self.assertRaises(NstDataApiError) as error:
+                    invoke()
+                self.assertEqual(error.exception.kind, 'invalid_response')
+                self.assertNotIn('private-response', str(error.exception))
+                self.assertEqual(self.request.call_count, 1)
+                self.assertTrue(response.closed)
+
+    def test_nested_invalid_json_uses_safe_error_and_closes_response(self):
+        response = self.reply(raw=b'[' * 2000 + b'"private-response"' + b']' * 2000)
+        with self.assertRaises(NstDataApiError) as error:
+            self.client.get_crawl_status('crawl')
+        self.assertEqual(error.exception.kind, 'invalid_json')
+        self.assertNotIn('private-response', str(error.exception))
+        self.assertTrue(response.closed)
+        self.assertEqual(self.request.call_count, 1)
+
     def test_timeout_and_connection_errors_are_not_retried(self):
         for raised, kind in [(requests.Timeout('secret-token'), 'timeout'),
                              (requests.ConnectionError('secret-token'), 'transport')]:

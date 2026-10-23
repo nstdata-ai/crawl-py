@@ -2,21 +2,31 @@
 
 [中文](README_zh.md)
 
-A synchronous client for single-page scraping, site crawling, cursor pagination and deferred downloads.
+A synchronous Python client for retrieving webpage content through Nstdata Crawl.
+
+## Features
+
+| Capability | Guide |
+|---|---|
+| Single page | Retrieve Markdown, HTML, links, PDF, screenshots or raw bytes. |
+| Async tasks | [Submit once and resume by task ID](docs/guide.md#async-tasks). |
+| Site crawling | [Bound the crawl and read cursor-paginated pages](docs/guide.md#site-crawls). |
+| Deferred results | [Read referenced content on demand](docs/guide.md#content-and-references). |
+| Page options | [Configure rendering, actions, filtering, cookies, headers and proxy country](docs/guide.md#request-options). |
 
 ## Install
 
-Requires Python 3.10+ and Requests >=2.34.2,<3. Version `1.0.0` is prepared locally and not yet published. After publication, install with:
+Requires Python 3.10+. Version `1.0.0` is not yet published; after publication:
 
 ```sh
 python -m pip install nstdata-ai-crawl==1.0.0
 ```
 
-Published `0.1.1` has different behavior. Review [CHANGELOG.md](CHANGELOG.md) before upgrading; the package name `nstdata-ai-crawl` and import `nstdata_ai_crawl` are retained. Local archive installation and source builds are covered in [Contributing](CONTRIBUTING.md).
+For a local archive or source build, see [Contributing](CONTRIBUTING.md). Upgrading from `0.1.1` changes runtime requirements, the default API origin and error behavior; see [CHANGELOG](CHANGELOG.md).
 
-## Single page
+## Quick start
 
-Set `NSTDATA_API_TOKEN` in your environment. Running this example creates one task and may consume credits.
+Set `NSTDATA_API_TOKEN` in your environment. This example creates one task and may consume credits.
 
 ```python
 import os
@@ -37,47 +47,12 @@ with NstDataClient(os.environ['NSTDATA_API_TOKEN'], max_response_bytes=1048576) 
     # None is absent content; '' is a successful empty body. Preserve source/title.
 ```
 
-## Tasks and results
+The getters handle inline content and deferred references. Missing content is `None`; an empty string is a valid empty body. See the [usage guide](docs/guide.md) for complete workflows, method inputs/results and failure handling.
 
-| Method | Purpose |
-|---|---|
-| `submit_scrape_task_sync` | Submit and consume a synchronous single-page result |
-| `submit_scrape_task` | Submit once, then save the returned ID |
-| `get_scrape_task_result`, `wait_for_scrape` | Read or wait for an existing scrape |
-| `submit_crawl_task`, `get_crawl_status`, `wait_for_crawl` | Submit and inspect a site crawl |
-| `list_crawl_pages`, `iter_crawl_pages` | Read cursor-paginated results |
-| `read_storage` | Read an opaque storage reference |
+## Limits
 
-Requests use `https://api.nstdata.io/api/v1/crawl` and `x-api-key`. Sync scrape uses `/scrape`; async adds `?async=true`. Results use `/scrape/{id}`, site progress `/{id}`, pages `/{id}/pages`, storage `/storage/read?st=…`. IDs and query values are encoded by the client.
+- Local HTTP timeouts use seconds; request DTO timeouts use server-side milliseconds.
+- This client uses synchronous Requests. Connection/read timeouts are not a total wall-clock deadline, and stopping local work does not cancel a remote task.
+- Creation is not retried automatically. Keep returned task IDs before further calls.
 
-Async and site submissions are not retried. Preserve the ID before further calls. Wait helpers accept `max_polls`, `poll_interval` and `wait_timeout`; page iteration accepts `limit` and `max_batches`. Failed/expired tasks remain typed results. Local interruption does not cancel remote work.
-
-Pagination preserves service order, duplicate URLs and failed rows. An empty page can still have a next cursor; repeated cursors and batch limits raise errors. Previously yielded pages remain partial if a later read fails. Site completion does not establish every page succeeded.
-
-Crawl traversal filters are forwarded unchanged; the SDK does not interpret their matching syntax.
-
-Deferred getters read only when called and cache successful results, including empty strings. Missing text is `None`, distinct from `''`. Use `get_markdown()` and other getters rather than treating a storage reference as a URL. `rawData` is bytes, not a structured-JSON extraction guarantee.
-
-PDF/screenshot/raw-data getters return `bytes`. Inline PDF/screenshots are decoded from Base64; inline raw text is encoded as UTF-8. Present inline content, including empty content, takes precedence over references. Otherwise getters read and cache the referenced bytes.
-
-Results retain service-provided `id` and `data.truncated`, including `False`. An absent truncation flag is unknown; a synchronous result ID alone does not guarantee that its content can be queried again.
-
-## Timeouts and errors
-
-`NstDataClient(token, *, base_url=..., timeout=(10, 120), max_response_bytes=16777216)` keeps the positional token constructor. API/storage methods and getters accept a per-call `timeout` override, in seconds. DTO `timeout` remains server-side milliseconds.
-
-DTO `timeout` uses integer milliseconds from 1000 to 60000; `jsRender.waitFor` uses integer milliseconds from 1000 to 30000. Action wait times and scroll coordinates are integers. DTO values are forwarded without coercion; the service validates them.
-
-Requests timeouts bound connection and read inactivity, not total wall-clock duration. `wait_timeout` bounds checks/sleeps and clips HTTP timeouts but cannot interrupt a blocked synchronous call. There is no native asyncio cancellation. Use a separate client for each concurrent worker.
-
-Decoded response bodies default to a 16 MiB cap per response; chunk and parser copies add memory overhead. Redirects are rejected. The default Session does not retry. TLS verification remains enabled, and Requests environment proxy/CA behavior applies. Context-manager exit closes the Session.
-
-`NstDataApiError` exposes `kind`, optional `status_code` and `api_code`; raw response/network messages are omitted. Input validation raises `ValueError`. A failed task is a result, not an HTTP exception. Treat task fields and webpage content as untrusted data.
-
-Malformed inline Base64, non-string inline content, invalid UTF-8 raw text, invalid reference/link/metadata types and non-boolean truncation flags raise `NstDataApiError(kind='invalid_response')` without response values. Null inline values are treated as absent.
-
-## Development
-
-See [Contributing](CONTRIBUTING.md) for setup, builds and package checks. Tests use mocks and loopback HTTP. Running `main.py` sends a real scrape; importing it does not.
-
-[Contributing](CONTRIBUTING.md) · [API documentation](https://docs.nstdata.io/docs/crawl) · [MIT license](LICENSE)
+[Timeouts and errors](docs/guide.md#timeouts-and-errors) · [Contributing](CONTRIBUTING.md) · [API documentation](https://docs.nstdata.io/docs/crawl) · [MIT license](LICENSE)

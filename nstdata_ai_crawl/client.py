@@ -3,6 +3,7 @@ import json
 import math
 import time
 from dataclasses import fields
+from typing import Optional
 from urllib.parse import quote, urlsplit
 
 import requests
@@ -30,8 +31,14 @@ class NstDataApiError(Exception):
 def _build(cls, data):
     if not isinstance(data, dict):
         raise NstDataApiError('invalid_response')
-    names = {field.name for field in fields(cls) if field.init}
-    return cls(**{key: value for key, value in data.items() if key in names})
+    names = {field.name: field.type for field in fields(cls) if field.init}
+    values = {key: value for key, value in data.items() if key in names}
+    scalar_types = {Optional[str]: str, Optional[bool]: bool, Optional[int]: int}
+    for name, value in values.items():
+        expected = scalar_types.get(names[name])
+        if value is not None and expected is not None and type(value) is not expected:
+            raise NstDataApiError('invalid_response')
+    return cls(**values)
 
 
 def _timeout(value):
@@ -92,7 +99,7 @@ class NstDataClient:
                 return raw
             try:
                 envelope = json.loads(raw)
-            except (ValueError, UnicodeError):
+            except (ValueError, RecursionError):
                 raise NstDataApiError('invalid_json', status_code=response.status_code) from None
             if not isinstance(envelope, dict) or type(envelope.get('err')) is not bool \
                     or type(envelope.get('code')) is not int:
@@ -112,6 +119,8 @@ class NstDataClient:
             raise NstDataApiError(kind) from None
         except requests.RequestException:
             raise NstDataApiError('transport') from None
+        except UnicodeError:
+            raise NstDataApiError('transport') from None
         finally:
             if response is not None:
                 response.close()
@@ -120,22 +129,11 @@ class NstDataClient:
         if raw is None:
             return None
         data = _build(ScrapeDataDto, raw)
-        if data.truncated is not None and type(data.truncated) is not bool:
-            raise NstDataApiError('invalid_response')
-        for name in ('htmlRef', 'markdownRef', 'pdfRef', 'rawDataRef', 'screenshotRef'):
-            if getattr(data, name) is not None and not isinstance(getattr(data, name), str):
-                raise NstDataApiError('invalid_response')
         if data.links is not None and (not isinstance(data.links, list)
                                        or any(not isinstance(link, str) for link in data.links)):
             raise NstDataApiError('invalid_response')
         if data.metadata is not None:
             data.metadata = _build(PageMetadataDto, data.metadata)
-            for name in ('canonical', 'description', 'language', 'ogImage', 'title'):
-                value = getattr(data.metadata, name)
-                if value is not None and not isinstance(value, str):
-                    raise NstDataApiError('invalid_response')
-            if data.metadata.statusCode is not None and type(data.metadata.statusCode) is not int:
-                raise NstDataApiError('invalid_response')
         for name in ('html', 'markdown', 'pdf', 'screenshot', 'rawData'):
             value = raw.get(name)
             if value is not None and not isinstance(value, str):

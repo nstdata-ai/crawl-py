@@ -17,7 +17,9 @@ Use a fresh build output directory; package checks require exactly one wheel and
 python -m pip install /PATH/TO/nstdata_ai_crawl-1.0.0-py3-none-any.whl
 ```
 
-Package checks install the wheel into an empty temporary target and run public-interface regressions outside the source tree, verifying the import path. Runtime dependencies come from the current interpreter; this check does not resolve a new dependency set.
+Package checks install the wheel into an empty temporary target and run the full regression suite outside the source tree, verifying the import path. Runtime dependencies come from the current interpreter; this check does not resolve a new dependency set. The sdist includes both language guides, examples, tests and security reporting instructions.
+
+Update both READMEs and guides when public behavior changes. Package checks verify their links and bilingual programs; tests execute the guide workflows through the real client with synthetic responses. Package metadata converts repository-relative documentation links to absolute GitHub URLs for PyPI rendering. Request creation must remain single-attempt.
 
 Tests must remain offline or loopback-only.
 
