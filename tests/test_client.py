@@ -257,14 +257,22 @@ class ClientTests(unittest.TestCase):
                 self.assertEqual(self.request.call_count, 1)
                 self.assertTrue(response.closed)
 
-    def test_nested_invalid_json_uses_safe_error_and_closes_response(self):
-        response = self.reply(raw=b'[' * 2000 + b'"private-response"' + b']' * 2000)
-        with self.assertRaises(NstDataApiError) as error:
-            self.client.get_crawl_status('crawl')
-        self.assertEqual(error.exception.kind, 'invalid_json')
-        self.assertNotIn('private-response', str(error.exception))
-        self.assertTrue(response.closed)
-        self.assertEqual(self.request.call_count, 1)
+    def test_nested_json_errors_are_safe_and_close_response(self):
+        for parser_error in (False, True):
+            with self.subTest(parser_error=parser_error):
+                self.request.reset_mock()
+                response = self.reply(raw=b'[' * 2000 + b'"private-response"' + b']' * 2000)
+                with patch('nstdata_ai_crawl.client.json.loads', wraps=json.loads) as decode:
+                    if parser_error:
+                        decode.side_effect = RecursionError('private-response')
+                    with self.assertRaises(NstDataApiError) as error:
+                        self.client.get_crawl_status('crawl')
+                # Parser depth limits differ; a parsed array still fails envelope validation.
+                expected = ('invalid_json',) if parser_error else ('invalid_json', 'invalid_response')
+                self.assertIn(error.exception.kind, expected)
+                self.assertNotIn('private-response', str(error.exception))
+                self.assertTrue(response.closed)
+                self.assertEqual(self.request.call_count, 1)
 
     def test_timeout_and_connection_errors_are_not_retried(self):
         for raised, kind in [(requests.Timeout('secret-token'), 'timeout'),

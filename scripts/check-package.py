@@ -34,11 +34,11 @@ for name in ('README.md', 'README_zh.md'):
     examples.append(re.findall(r'```python\n([\s\S]*?)```', text))
 assert commands[0] == commands[1], 'Bilingual install commands differ'
 assert examples[0] == examples[1], 'Bilingual Python examples differ'
-assert re.findall(r'```python\n([\s\S]*?)```', (root / 'docs/guide.md').read_text()) == \
-       re.findall(r'```python\n([\s\S]*?)```', (root / 'docs/guide_zh.md').read_text()), 'Bilingual guide programs differ'
+assert re.findall(r'```python\n([\s\S]*?)```', (root / 'docs/guide.md').read_text(encoding='utf-8')) == \
+       re.findall(r'```python\n([\s\S]*?)```', (root / 'docs/guide_zh.md').read_text(encoding='utf-8')), 'Bilingual guide programs differ'
 for name in documentation:
     source = root / name
-    for target in re.findall(r'\[[^\]\n]+\]\(([^)\n]+)\)', source.read_text()):
+    for target in re.findall(r'\[[^\]\n]+\]\(([^)\n]+)\)', source.read_text(encoding='utf-8')):
         if re.match(r'^[a-z]+:', target):
             continue
         relative, _, anchor = target.partition('#')
@@ -46,9 +46,9 @@ for name in documentation:
         assert linked.is_file(), 'Missing documentation link: ' + target
         if anchor:
             slugs = [re.sub(r'[^\w -]', '', heading.lower()).replace(' ', '-')
-                     for heading in re.findall(r'^#+ (.+)$', linked.read_text(), re.MULTILINE)]
+                     for heading in re.findall(r'^#+ (.+)$', linked.read_text(encoding='utf-8'), re.MULTILINE)]
             assert anchor in slugs, 'Missing documentation anchor: ' + target
-assert '## ' + version + ' — Unreleased' in (root / 'CHANGELOG.md').read_text(), 'CHANGELOG version mismatch'
+assert '## ' + version + ' — Unreleased' in (root / 'CHANGELOG.md').read_text(encoding='utf-8'), 'CHANGELOG version mismatch'
 folder = Path(sys.argv[1] if len(sys.argv) > 1 else 'dist')
 wheels = list(folder.glob('*.whl'))
 sources = list(folder.glob('*.tar.gz'))

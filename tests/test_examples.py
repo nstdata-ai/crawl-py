@@ -15,7 +15,7 @@ class ExamplesTests(unittest.TestCase):
     def test_guide_programs_execute_bounded_workflows_with_actual_client(self):
         for name in ('guide.md', 'guide_zh.md'):
             source = Path(__file__).resolve().parents[1] / 'docs' / name
-            blocks = re.findall(r'```python\n([\s\S]*?)```', source.read_text())
+            blocks = re.findall(r'```python\n([\s\S]*?)```', source.read_text(encoding='utf-8'))
             self.assertEqual(len(blocks), 3)
             for index, code in enumerate(blocks):
                 with self.subTest(document=name, workflow=index):
@@ -99,7 +99,7 @@ class ExamplesTests(unittest.TestCase):
     def test_readme_examples_reject_missing_markdown_but_preserve_empty_text(self):
         for name in ('README.md', 'README_zh.md'):
             source = Path(__file__).resolve().parents[1] / name
-            code = re.findall(r'```python\n([\s\S]*?)```', source.read_text())[0]
+            code = re.findall(r'```python\n([\s\S]*?)```', source.read_text(encoding='utf-8'))[0]
             for text, expected_error in [(None, True), ('', False), ('# Fixture', False)]:
                 content = ScrapeDataDto()
                 content._markdown = text
