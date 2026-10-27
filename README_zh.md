@@ -16,35 +16,54 @@
 
 ## 安装
 
-需要 Python 3.10+。`1.0.0` 尚未发布；发布后使用：
+需要 Python 3.10+。
 
 ```sh
-python -m pip install nstdata-ai-crawl==1.0.0
+python -m pip install nstdata-ai-crawl
 ```
 
-本地归档安装或源码构建见[贡献说明](CONTRIBUTING.md)。从 `0.1.1` 升级会改变运行环境要求、默认 API 域名和错误行为，详见[变更记录](CHANGELOG.md)。
+从 `0.1.1` 升级前，请阅读[兼容性变化](CHANGELOG.md#100)。
 
 ## 快速开始
 
-在环境中设置 `NSTDATA_API_TOKEN`。运行此例会创建一个任务，可能消耗额度。
+在环境中设置 API Key（macOS/Linux）：
+
+```sh
+export NSTDATA_API_TOKEN='your-api-key'
+```
+
+将以下程序保存为 `quickstart.py`。它提交一次单页任务并输出 Markdown；服务调用会消耗额度。
 
 ```python
 import os
 from nstdata_ai_crawl import NstDataClient, ScrapeRequestDto, NstDataApiError
 
-with NstDataClient(os.environ['NSTDATA_API_TOKEN'], max_response_bytes=1048576) as client:
-    result = client.submit_scrape_task_sync(ScrapeRequestDto(
-        url='https://example.com/', formats=['markdown'], onlyMainContent=True,
-        timeout=60000,  # Upstream milliseconds, separate from local HTTP seconds.
-    ))
-    if result.success is False or result.status in ('failed', 'expired'):
-        raise NstDataApiError('task_failed')
-    if result.status != 'completed' or result.success is not True or result.data is None:
-        raise NstDataApiError('missing_content')
-    markdown = result.data.get_markdown()
-    if markdown is None:
-        raise NstDataApiError('missing_content')
-    # None is absent content; '' is a successful empty body. Preserve source/title.
+token = os.environ.get('NSTDATA_API_TOKEN')
+if not token or not token.strip():
+    raise SystemExit('Set NSTDATA_API_TOKEN in your environment.')
+
+try:
+    with NstDataClient(token, max_response_bytes=1048576) as client:
+        result = client.submit_scrape_task_sync(ScrapeRequestDto(
+            url='https://example.com/', formats=['markdown'],
+            onlyMainContent=True, timeout=60000,
+        ))
+        if result.success is False or result.status in ('failed', 'expired'):
+            raise NstDataApiError('task_failed')
+        if result.status != 'completed' or result.success is not True or result.data is None:
+            raise NstDataApiError('missing_content')
+        markdown = result.data.get_markdown()
+        if markdown is None:
+            raise NstDataApiError('missing_content')
+        print(markdown)
+except NstDataApiError as error:
+    raise SystemExit(f'Crawl failed: {error.kind}') from None
+```
+
+运行：
+
+```sh
+python quickstart.py
 ```
 
 getter 自动处理内联内容和延迟引用。缺失内容为 `None`；空字符串是有效的空正文。完整工作流、方法输入／结果及失败处理见[使用指南](docs/guide_zh.md)。
