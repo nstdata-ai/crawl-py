@@ -50,8 +50,8 @@ def _timeout(value):
 
 
 def _identifier(value):
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError('Task ID or reference is required')
+    if not isinstance(value, str) or not value.strip() or value in ('.', '..'):
+        raise ValueError('Task ID must be a nonempty path segment other than . or ..')
     return quote(value, safe='')
 
 
@@ -201,7 +201,8 @@ class NstDataClient:
         return result
 
     def read_storage(self, st: str, *, timeout=None) -> bytes:
-        _identifier(st)
+        if not isinstance(st, str) or not st.strip():
+            raise ValueError('Storage reference is required')
         return self._request('GET', '/api/v1/crawl/storage/read', params={'st': st}, timeout=timeout, binary=True)
 
     def _read_text_storage(self, st, *, timeout=None):

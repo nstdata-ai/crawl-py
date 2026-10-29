@@ -11,7 +11,7 @@
 ### Changes
 
 - Support bounded task polling and cursor pagination without automatic creation retries.
-- Validate response types while preserving task identity, optional metadata and service truncation.
+- Validate task IDs and response types while preserving task identity, optional metadata and service truncation.
 - Read inline and referenced content, keeping absent, empty and failed results distinct; decode binary Base64 and UTF-8 data without silently replacing invalid content.
 - Close streamed responses and sessions, protect credentials and report safe errors for malformed responses.
 - Provide executable bilingual workflows, isolated wheel/sdist checks and SPDX MIT package metadata.

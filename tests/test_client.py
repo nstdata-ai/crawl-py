@@ -95,6 +95,24 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(data.get_markdown(), '正文😀')
         self.assertEqual(self.request.call_count, 1)
 
+    def test_dot_task_ids_are_rejected_before_request(self):
+        self.reply({})
+        for task_id in ('.', '..'):
+            for operation in (self.client.get_scrape_task_result,
+                              self.client.get_crawl_status, self.client.list_crawl_pages):
+                with self.subTest(task_id=task_id, operation=operation.__name__):
+                    with self.assertRaises(ValueError):
+                        operation(task_id)
+        self.request.assert_not_called()
+
+    def test_dot_storage_references_remain_opaque_query_values(self):
+        for reference in ('.', '..'):
+            with self.subTest(reference=reference):
+                self.reply(raw=b'content')
+                self.assertEqual(self.client.read_storage(reference), b'content')
+                self.assertTrue(self.request.call_args.args[1].endswith('/storage/read'))
+                self.assertEqual(self.request.call_args.kwargs['params'], {'st': reference})
+
     def test_all_binary_getters_and_html_remain_lazy(self):
         for name, ref, expected in [('get_html', 'htmlRef', 'X'), ('get_pdf', 'pdfRef', b'X'),
                                     ('get_raw_data', 'rawDataRef', b'X'), ('get_screenshot', 'screenshotRef', b'X')]:
