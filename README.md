@@ -1,49 +1,77 @@
-# nstdata crawl SDK (Python)
+# Nstdata Crawl SDK for Python
 
-[中文版](README_zh.md)
+[中文](README_zh.md)
 
-Python SDK for nstdata crawl, an advanced web scraping and crawling service.
-
-## Installation
-
-```bash
-pip install nstdata-ai-crawl
-```
+A synchronous Python client for retrieving webpage content through Nstdata Crawl.
 
 ## Features
 
-- **Basic Scraping:** Get HTML and Markdown synchronously.
-- **Screenshots & PDFs:** Take full-page screenshots and export pages as PDFs.
-- **Browser Actions:** Orchestrate browser actions like wait for elements, fill forms, click buttons, scroll, and execute JS.
-- **Custom Configuration:** Bring your own cookies, headers, and simulate mobile devices.
-- **Content Filtering:** Automatically extract high-quality main content, filter out ads and navigational elements.
-- **Proxy Location:** Specify proxy exit country with `proxy.country`.
-- **Synchronous or Asynchronous Scraping:** Use the same scrape API; asynchronous submission returns a task ID for polling.
-- **Batch Crawling:** Traverse entire sites with depth and page limits.
+| Capability | Guide |
+|---|---|
+| Single page | Retrieve Markdown, HTML, links, PDF, screenshots or raw bytes. |
+| Async tasks | [Submit once and resume by task ID](docs/guide.md#async-tasks). |
+| Site crawling | [Bound the crawl and read cursor-paginated pages](docs/guide.md#site-crawls). |
+| Deferred results | [Read referenced content on demand](docs/guide.md#content-and-references). |
+| Page options | [Configure rendering, actions, filtering, cookies, headers and proxy country](docs/guide.md#request-options). |
 
-## Quick Start
+## Install
 
-See [main.py](./main.py) for a complete list of usage examples.
+Requires Python 3.10+.
+
+```sh
+python -m pip install nstdata-ai-crawl
+```
+
+Upgrading from `0.1.1`? Review the [compatibility changes](CHANGELOG.md#100).
+
+## Quick start
+
+Set your API key in the environment (macOS/Linux):
+
+```sh
+export NSTDATA_API_TOKEN='your-api-key'
+```
+
+Save the following as `quickstart.py`. It submits one page task and prints Markdown; service calls consume credits.
 
 ```python
 import os
-from nstdata_ai_crawl import NstDataClient, ScrapeRequestDto, Format
+from nstdata_ai_crawl import NstDataClient, ScrapeRequestDto, NstDataApiError
 
-# Initialize the client with your API token
-TOKEN = os.getenv("NSTDATA_API_TOKEN", "YOUR_API_TOKEN")
+token = os.environ.get('NSTDATA_API_TOKEN')
+if not token or not token.strip():
+    raise SystemExit('Set NSTDATA_API_TOKEN in your environment.')
 
-def main():
-    with NstDataClient(TOKEN) as client:
-        # Submit a basic scraping task
-        res = client.submit_scrape_task_sync(ScrapeRequestDto(
-            url="https://example.com/",
-            formats=[Format.MARKDOWN],
-            timeout=60000,
+try:
+    with NstDataClient(token, max_response_bytes=1048576) as client:
+        result = client.submit_scrape_task_sync(ScrapeRequestDto(
+            url='https://example.com/', formats=['markdown'],
+            onlyMainContent=True, timeout=60000,
         ))
-        
-        # Output the resulting markdown
-        print(res.data.get_markdown())
-
-if __name__ == "__main__":
-    main()
+        if result.success is False or result.status in ('failed', 'expired'):
+            raise NstDataApiError('task_failed')
+        if result.status != 'completed' or result.success is not True or result.data is None:
+            raise NstDataApiError('missing_content')
+        markdown = result.data.get_markdown()
+        if markdown is None:
+            raise NstDataApiError('missing_content')
+        print(markdown)
+except NstDataApiError as error:
+    raise SystemExit(f'Crawl failed: {error.kind}') from None
 ```
+
+Run it:
+
+```sh
+python quickstart.py
+```
+
+The getters handle inline content and deferred references. Missing content is `None`; an empty string is a valid empty body. See the [usage guide](docs/guide.md) for complete workflows, method inputs/results and failure handling.
+
+## Limits
+
+- Local HTTP timeouts use seconds; request DTO timeouts use server-side milliseconds.
+- This client uses synchronous Requests. Connection/read timeouts are not a total wall-clock deadline, and stopping local work does not cancel a remote task.
+- Creation is not retried automatically. Keep returned task IDs before further calls.
+
+[Timeouts and errors](docs/guide.md#timeouts-and-errors) · [Contributing](CONTRIBUTING.md) · [API documentation](https://docs.nstdata.io/docs/crawl) · [MIT license](LICENSE)
