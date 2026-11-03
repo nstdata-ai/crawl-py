@@ -36,6 +36,7 @@ Save the following as `quickstart.py`. It submits one page task and prints Markd
 
 ```python
 import os
+import sys
 from nstdata_ai_crawl import NstDataClient, ScrapeRequestDto, NstDataApiError
 
 token = os.environ.get('NSTDATA_API_TOKEN')
@@ -55,6 +56,8 @@ try:
         markdown = result.data.get_markdown()
         if markdown is None:
             raise NstDataApiError('missing_content')
+        if result.data.truncated is True:
+            print('Warning: service returned truncated content; output is partial.', file=sys.stderr)
         print(markdown)
 except NstDataApiError as error:
     raise SystemExit(f'Crawl failed: {error.kind}') from None
@@ -67,6 +70,8 @@ python quickstart.py
 ```
 
 The getters handle inline content and deferred references. Missing content is `None`; an empty string is a valid empty body. See the [usage guide](docs/guide.md) for complete workflows, method inputs/results and failure handling.
+
+When `data.truncated` is explicitly `True`, the example warns on stderr and still prints the returned content successfully.
 
 ## Limits
 

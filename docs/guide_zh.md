@@ -22,6 +22,7 @@
 
 ```python
 import os
+import sys
 from nstdata_ai_crawl import NstDataClient, ScrapeRequestDto, NstDataApiError
 
 with NstDataClient(os.environ['NSTDATA_API_TOKEN']) as client:
@@ -39,6 +40,8 @@ with NstDataClient(os.environ['NSTDATA_API_TOKEN']) as client:
     markdown = result.data.get_markdown()
     if markdown is None:
         raise NstDataApiError('missing_content')
+    if result.data.truncated is True:
+        print('Warning: service returned truncated content; output is partial.', file=sys.stderr)
 ```
 
 只查询一次可用 `get_scrape_task_result(task_id, timeout=...)`，有界轮询使用 `wait_for_scrape`。`failed`／`expired` 和 `success=False` 保留为终态结果。提交缺失 ID 或返回结果不确定时，不应直接重新提交；先核对任务历史再决定下一步。
@@ -49,6 +52,7 @@ with NstDataClient(os.environ['NSTDATA_API_TOKEN']) as client:
 
 ```python
 import os
+import sys
 from nstdata_ai_crawl import NstDataClient, CrawlRequestDto, NstDataApiError
 
 with NstDataClient(os.environ['NSTDATA_API_TOKEN']) as client:
@@ -71,6 +75,8 @@ with NstDataClient(os.environ['NSTDATA_API_TOKEN']) as client:
         markdown = page.data.get_markdown()
         if markdown is None:
             raise NstDataApiError('missing_content')
+        if page.data.truncated is True:
+            print('Warning: service returned truncated content; output is partial.', file=sys.stderr)
         print(markdown)
 ```
 
@@ -89,7 +95,7 @@ with NstDataClient(os.environ['NSTDATA_API_TOKEN']) as client:
 
 内联 PDF／截图按 Base64 解码，内联原始文本按 UTF-8 编码。`read_storage(st)` 直接读取引用字节。HTML／Markdown 引用下载须为有效 UTF-8；原始字节读取保留响应内容。
 
-向下游传递内容时保留 `page.url`、`page.taskId`、状态／成功标记、`data.metadata` 和 `data.truncated`。正文缺失是 `None`，不是空正文。`truncated=True` 表示服务内容不完整，缺失标记表示未知。同步结果的可选 `id` 只是诊断标识，不保证能通过异步查询接口再次取得结果。
+向下游传递内容时保留 `page.url`、`page.taskId`、状态／成功标记、`data.metadata` 和 `data.truncated`。正文缺失是 `None`，不是空正文。`truncated=True` 表示服务内容不完整，缺失标记表示未知。示例仅当此标记明确为 `True` 时向 stderr 提示，保留返回的正文和成功结果。同步结果的可选 `id` 只是诊断标识，不保证能通过异步查询接口再次取得结果。
 
 ## 请求选项
 

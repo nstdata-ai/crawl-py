@@ -22,6 +22,7 @@ Submit once, save `submitted.id`, then query that same ID. The example creates o
 
 ```python
 import os
+import sys
 from nstdata_ai_crawl import NstDataClient, ScrapeRequestDto, NstDataApiError
 
 with NstDataClient(os.environ['NSTDATA_API_TOKEN']) as client:
@@ -39,6 +40,8 @@ with NstDataClient(os.environ['NSTDATA_API_TOKEN']) as client:
     markdown = result.data.get_markdown()
     if markdown is None:
         raise NstDataApiError('missing_content')
+    if result.data.truncated is True:
+        print('Warning: service returned truncated content; output is partial.', file=sys.stderr)
 ```
 
 Use `get_scrape_task_result(task_id, timeout=...)` for one query, or `wait_for_scrape` for bounded polling. `failed`/`expired` and `success=False` remain typed terminal results. A missing submission ID or an uncertain creation response does not justify submitting again; inspect task history before deciding what to do next.
@@ -49,6 +52,7 @@ This example bounds creation to two pages and reads only successful completed pa
 
 ```python
 import os
+import sys
 from nstdata_ai_crawl import NstDataClient, CrawlRequestDto, NstDataApiError
 
 with NstDataClient(os.environ['NSTDATA_API_TOKEN']) as client:
@@ -71,6 +75,8 @@ with NstDataClient(os.environ['NSTDATA_API_TOKEN']) as client:
         markdown = page.data.get_markdown()
         if markdown is None:
             raise NstDataApiError('missing_content')
+        if page.data.truncated is True:
+            print('Warning: service returned truncated content; output is partial.', file=sys.stderr)
         print(markdown)
 ```
 
@@ -89,7 +95,7 @@ Present inline content takes precedence over a reference, including empty text/b
 
 Inline PDF/screenshots are Base64-decoded; inline raw text is UTF-8-encoded. `read_storage(st)` reads referenced bytes directly. HTML/Markdown reference downloads require valid UTF-8; raw byte reads preserve the response.
 
-Preserve `page.url`, `page.taskId`, status/success, `data.metadata` and `data.truncated` when preparing downstream content. Missing content is `None`, not an empty body. `truncated=True` means partial service output; an absent flag is unknown. A synchronous result's optional `id` is diagnostic identity, not proof that the async endpoint can retrieve that result.
+Preserve `page.url`, `page.taskId`, status/success, `data.metadata` and `data.truncated` when preparing downstream content. Missing content is `None`, not an empty body. `truncated=True` means partial service output; an absent flag is unknown. The examples warn on stderr only when this flag is explicitly `True`, keeping the returned content and successful result. A synchronous result's optional `id` is diagnostic identity, not proof that the async endpoint can retrieve that result.
 
 ## Request options
 
