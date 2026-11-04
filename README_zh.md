@@ -36,6 +36,7 @@ export NSTDATA_API_TOKEN='your-api-key'
 
 ```python
 import os
+import sys
 from nstdata_ai_crawl import NstDataClient, ScrapeRequestDto, NstDataApiError
 
 token = os.environ.get('NSTDATA_API_TOKEN')
@@ -55,6 +56,8 @@ try:
         markdown = result.data.get_markdown()
         if markdown is None:
             raise NstDataApiError('missing_content')
+        if result.data.truncated is True:
+            print('Warning: service returned truncated content; output is partial.', file=sys.stderr)
         print(markdown)
 except NstDataApiError as error:
     raise SystemExit(f'Crawl failed: {error.kind}') from None
@@ -67,6 +70,8 @@ python quickstart.py
 ```
 
 getter 自动处理内联内容和延迟引用。缺失内容为 `None`；空字符串是有效的空正文。完整工作流、方法输入／结果及失败处理见[使用指南](docs/guide_zh.md)。
+
+仅当 `data.truncated` 明确为 `True` 时，示例向 stderr 提示，并继续成功输出返回的正文。
 
 ## 限制
 

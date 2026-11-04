@@ -1,4 +1,5 @@
 import os
+import sys
 
 from nstdata_ai_crawl import NstDataClient, NstDataApiError, ScrapeRequestDto, CrawlRequestDto
 
@@ -13,6 +14,8 @@ def markdown(result):
     text = result.data.get_markdown()
     if text is None:
         raise NstDataApiError('missing_content')
+    if result.data.truncated is True:
+        print('Warning: service returned truncated content; output is partial.', file=sys.stderr)
     return text
 
 

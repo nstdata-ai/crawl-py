@@ -71,13 +71,6 @@ class ReleaseTests(unittest.TestCase):
         self.environment['RELEASE_MANIFEST_SHA256'] = release.digest((directory / 'manifest.json').read_bytes())
         return directory
 
-    def published_metadata(self, manifest):
-        return {'status': 200, 'data': {
-            'info': {'name': release.NAME, 'version': '1.0.0'},
-            'urls': [{'filename': name, 'digests': {'sha256': digest}, 'yanked': False}
-                     for name, digest in manifest['files'].items()],
-        }}
-
     def test_source_rejects_wrong_identity_version_commit_or_stored_token(self):
         release.validate_source(self.environment, self.root, self.command)
         changes = {'GITHUB_EVENT_NAME': 'push', 'GITHUB_REPOSITORY': 'other/crawl-py',
@@ -148,27 +141,23 @@ class ReleaseTests(unittest.TestCase):
             release.verify_artifacts(directory, self.environment)
         release.verify_artifacts(directory, self.environment, allow_attestations=True)
 
-    def test_registry_refuses_existing_missing_changed_or_yanked_releases(self):
+    def test_registry_preflight_requires_one_404_without_retries(self):
         release.check_registry('1.0.0', fetch=self.fetch)
-        directory = self.prepare()
-        manifest = release.verify_artifacts(directory, self.environment)
-        self.registry = self.published_metadata(manifest)
-        with self.assertRaises(release.ReleaseError):
-            release.check_registry('1.0.0', fetch=self.fetch)
-        release.check_registry('1.0.0', manifest['files'], self.fetch)
-        for key, value in [('urls', []), ('info', {'name': 'other', 'version': '1.0.0'})]:
-            previous = copy.deepcopy(self.registry)
-            self.registry['data'][key] = value
-            with self.subTest(key=key), self.assertRaises(release.ReleaseError):
-                release.check_registry('1.0.0', manifest['files'], self.fetch)
-            self.registry = previous
-        self.registry['data']['urls'][0]['yanked'] = True
-        with self.assertRaises(release.ReleaseError):
-            release.check_registry('1.0.0', manifest['files'], self.fetch)
-        self.registry = self.published_metadata(manifest)
-        self.registry['data']['urls'][0]['digests']['sha256'] = '0' * 64
-        with self.assertRaises(release.ReleaseError):
-            release.check_registry('1.0.0', manifest['files'], self.fetch)
+        self.assertEqual(self.requests, [('https://pypi.org/pypi/nstdata-ai-crawl/1.0.0/json', None)])
+        for status in (200, 403, 500):
+            self.requests.clear()
+            self.registry = {'status': status}
+            with self.subTest(status=status), self.assertRaises(release.ReleaseError):
+                release.check_registry('1.0.0', fetch=self.fetch)
+            self.assertEqual(len(self.requests), 1)
+        def timeout(url):
+            self.requests.append((url, None))
+            raise TimeoutError()
+
+        self.requests.clear()
+        with self.assertRaises(TimeoutError):
+            release.check_registry('1.0.0', fetch=timeout)
+        self.assertEqual(len(self.requests), 1)
 
     def test_verify_never_builds_or_uploads_and_existing_version_stops_it(self):
         directory = self.prepare()
@@ -179,18 +168,40 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaises(release.ReleaseError):
             release.main('verify', directory, self.environment, self.fetch, self.command, self.root)
 
-    def test_published_checks_hashes_and_unversioned_clean_install_before_success(self):
+    def test_published_records_upload_without_network_or_installation(self):
         directory = self.prepare()
-        manifest = release.verify_artifacts(directory, self.environment)
-        self.registry = self.published_metadata(manifest)
+        for name in release.filenames('1.0.0'):
+            (directory / 'dist' / (name + '.publish.attestation')).write_text('{}')
         self.calls.clear()
-        release.main('published', directory, self.environment, self.fetch, self.command, self.root)
-        installs = [args for args, _ in self.calls if 'install' in args]
-        self.assertEqual(len(installs), 1)
-        self.assertEqual(installs[0][-1], release.NAME)
-        self.assertIn('--isolated', installs[0])
-        self.assertIn('https://pypi.org/simple', installs[0])
-        self.assertIn('clean public installation passed', (self.root / 'summary').read_text())
+        self.requests.clear()
+
+        def no_network(*arguments):
+            self.fail('Upload completion must not query public metadata')
+
+        def source_checks_only(arguments, cwd):
+            self.assertEqual(arguments[0], 'git', 'Upload completion must not install or upload')
+            return self.command(arguments, cwd)
+
+        release.main('published', directory, self.environment, no_network, source_checks_only, self.root)
+        self.assertEqual(len(self.calls), 2)
+        self.assertEqual(self.requests, [])
+        summary = (self.root / 'summary').read_text()
+        self.assertIn('PyPI upload completed for `nstdata-ai-crawl==1.0.0`', summary)
+        self.assertIn('Public availability may be delayed', summary)
+        self.assertNotIn('public installation passed', summary)
+
+    def test_published_rejects_changed_artifacts_before_reporting_completion(self):
+        directory = self.prepare()
+        archive = next((directory / 'dist').glob('*.whl'))
+        archive.write_bytes(b'changed')
+        summary = (self.root / 'summary').read_text()
+        self.calls.clear()
+        self.requests.clear()
+        with self.assertRaisesRegex(release.ReleaseError, 'Archive changed after checks'):
+            release.main('published', directory, self.environment, self.fetch, self.command, self.root)
+        self.assertEqual((self.root / 'summary').read_text(), summary)
+        self.assertTrue(all(args[0] == 'git' for args, _ in self.calls))
+        self.assertEqual(self.requests, [])
 
     def test_request_rejects_redirects_oversized_metadata_and_closes_http_errors(self):
         body = io.BytesIO(b'private-response-data')
