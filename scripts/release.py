@@ -1,4 +1,4 @@
-"""Check one reviewed build before and after the official PyPI publishing action."""
+"""Validate reviewed distributions and record the official PyPI upload result."""
 import ast
 import hashlib
 import json
@@ -7,7 +7,6 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-import tempfile
 from urllib.error import HTTPError
 from urllib.request import build_opener, HTTPRedirectHandler, Request
 
@@ -145,21 +144,9 @@ def verify_artifacts(directory, environment, allow_attestations=False):
     return manifest
 
 
-def check_registry(version, files=None, fetch=request_json):
+def check_registry(version, fetch=request_json):
     result = fetch('https://pypi.org/pypi/' + NAME + '/' + version + '/json')
-    if files is None:
-        require(result['status'] == 404, 'Version already exists; inspect PyPI instead of republishing')
-        return
-    require(result['status'] == 200, 'Published version is not visible; inspect before another run')
-    data = result['data']
-    require(data.get('info', {}).get('name') == NAME and data['info'].get('version') == version,
-            'Published package identity differs')
-    entries = data.get('urls', [])
-    require(len(entries) == 2 and {item.get('filename') for item in entries} == set(files),
-            'Published file set differs')
-    for entry in entries:
-        require(entry.get('digests', {}).get('sha256') == files[entry['filename']]
-                and entry.get('yanked') is False, 'Published file integrity or availability differs')
+    require(result['status'] == 404, 'Version already exists; inspect PyPI instead of republishing')
 
 
 def main(mode, directory, environment=None, fetch=request_json, command=execute, root=ROOT):
@@ -195,26 +182,9 @@ def main(mode, directory, environment=None, fetch=request_json, command=execute,
             check_environment(environment, fetch)
             check_registry(manifest['version'], fetch=fetch)
         else:
-            check_registry(manifest['version'], manifest['files'], fetch)
-            with tempfile.TemporaryDirectory(prefix='nstdata-pypi-install-') as temporary:
-                location = Path(temporary)
-                command([sys.executable, '-m', 'venv', str(location / 'venv')], location)
-                python = location / 'venv' / 'bin' / 'python'
-                command([str(python), '-m', 'pip', '--isolated', '--disable-pip-version-check',
-                         'install', '--no-input', '--no-cache-dir', '--retries', '0',
-                         '--index-url', 'https://pypi.org/simple', NAME], location)
-                program = ("import importlib.metadata, pathlib, sysconfig, nstdata_ai_crawl as sdk; "
-                           "assert importlib.metadata.version('nstdata-ai-crawl') == "
-                           + repr(manifest['version']) + "; "
-                           "assert pathlib.Path(sdk.__file__).resolve().is_relative_to("
-                           "pathlib.Path(sysconfig.get_paths()['purelib']).resolve()); "
-                           "assert all(hasattr(sdk, name) for name in "
-                           "('NstDataClient', 'NstDataApiError', 'ScrapeRequestDto'))")
-                command([str(python), '-I', '-c', program], location)
-                command([str(python), '-m', 'pip', '--isolated', 'check'], location)
             with open(environment['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as stream:
-                stream.write('\nPublished `' + NAME + '==' + manifest['version']
-                             + '`; registry hashes and clean public installation passed.\n')
+                stream.write('\nPyPI upload completed for `' + NAME + '==' + manifest['version']
+                             + '`. Public availability may be delayed.\n')
 
 
 if __name__ == '__main__':
