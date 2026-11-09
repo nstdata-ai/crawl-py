@@ -15,7 +15,7 @@ long_description = re.sub(
 
 setup(
     name="nstdata-ai-crawl",
-    version="1.0.0",
+    version="1.0.1",
     packages=find_packages(),
     install_requires=[
         "requests>=2.34.2,<3",
