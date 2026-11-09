@@ -143,8 +143,10 @@ class NstDataClient:
                     if '=' in value and (len(value) % 4 or len(value) - len(value.rstrip('=')) > 2):
                         raise ValueError('Invalid Base64 padding')
                     value = base64.b64decode(value + '=' * (-len(value) % 4), validate=True)
-                elif value is not None and name == 'rawData':
-                    value = value.encode('utf-8')
+                elif value is not None:
+                    encoded = value.encode('utf-8')
+                    if name == 'rawData':
+                        value = encoded
             except ValueError:
                 raise NstDataApiError('invalid_response') from None
             setattr(data, '_' + name, value)

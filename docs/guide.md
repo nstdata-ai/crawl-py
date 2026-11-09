@@ -93,7 +93,7 @@ with NstDataClient(os.environ['NSTDATA_API_TOKEN']) as client:
 
 Present inline content takes precedence over a reference, including empty text/bytes. Otherwise the getter downloads the matching opaque reference and caches a successful result. A failed read is not cached. Each getter accepts a local `timeout` override. Raw data is bytes, not a structured JSON extraction guarantee.
 
-Inline PDF/screenshots are Base64-decoded; inline raw text is UTF-8-encoded. `read_storage(st)` reads referenced bytes directly. HTML/Markdown reference downloads require valid UTF-8; raw byte reads preserve the response.
+Inline PDF/screenshots are Base64-decoded; inline raw text is UTF-8-encoded. `read_storage(st)` reads referenced bytes directly. Inline HTML/Markdown reject invalid Unicode, and their reference downloads require valid UTF-8; raw byte reads preserve the response.
 
 Preserve `page.url`, `page.taskId`, status/success, `data.metadata` and `data.truncated` when preparing downstream content. Missing content is `None`, not an empty body. `truncated=True` means partial service output; an absent flag is unknown. The examples warn on stderr only when this flag is explicitly `True`, keeping the returned content and successful result. A synchronous result's optional `id` is diagnostic identity, not proof that the async endpoint can retrieve that result.
 
