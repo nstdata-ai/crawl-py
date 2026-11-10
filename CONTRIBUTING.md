@@ -14,7 +14,7 @@ python scripts/check-package.py dist
 Use a fresh build output directory; package checks require exactly one wheel and one sdist. Keep version metadata, README installation commands and CHANGELOG aligned. To install a local build:
 
 ```sh
-python -m pip install /PATH/TO/nstdata_ai_crawl-1.0.0-py3-none-any.whl
+python -m pip install /PATH/TO/nstdata_ai_crawl-1.0.1-py3-none-any.whl
 ```
 
 Package checks inspect the exact wheel and sdist, verify their contents and wheel RECORD hashes, and run the SDK regression suite outside the source tree. Release and packaging tool tests run in the source suite. The sdist includes both language guides, examples, tests and security reporting instructions.

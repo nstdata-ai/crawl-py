@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+- Reject invalid Unicode in inline HTML and Markdown with `invalid_response`.
+- Export `TaskStatus.EXPIRED` for expired task results.
+
 ## 1.0.0
 
 ### Compatibility

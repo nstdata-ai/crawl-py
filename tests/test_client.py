@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import requests
 from nstdata_ai_crawl import (
     NstDataClient, NstDataApiError, ScrapeRequestDto, CrawlRequestDto,
-    ScrapeDataDto, TaskResultResponseDto, CrawlStatusResponseDto,
+    ScrapeDataDto, TaskResultResponseDto, CrawlStatusResponseDto, TaskStatus,
 )
 
 
@@ -170,6 +170,8 @@ class ClientTests(unittest.TestCase):
             for field in ('pdf', 'screenshot')
             for value in (42, False, {}, [], 'private-response!', 'A', 'AQ=I', 'AQ===', 'AQ=', 'AAAA=', 'AAAA==', 'AAAA====', '雪')
         ] + [{'rawData': value} for value in (42, False, {}, [], '\ud800private-response')] \
+          + [{field: value} for field in ('html', 'markdown')
+             for value in ('\ud800private-response', '\udfffprivate-response')] \
           + [{'truncated': value} for value in ('true', 1, {}, [])]
         for data in invalid:
             for operation in ('sync', 'result', 'pages'):
@@ -187,6 +189,26 @@ class ClientTests(unittest.TestCase):
                     self.assertNotIn('private-response', str(caught.exception))
                     self.assertEqual(self.request.call_count, 1)
                     self.assertTrue(response.closed)
+
+    def test_inline_text_preserves_unicode_and_empty_content_on_every_result_path(self):
+        for value in ('', '正文\U0001f600'):
+            for operation in ('sync', 'result', 'pages'):
+                with self.subTest(value=value, operation=operation):
+                    self.request.reset_mock()
+                    data = {'html': value, 'markdown': value,
+                            'htmlRef': 'do-not-read', 'markdownRef': 'do-not-read'}
+                    self.reply({'data': [{'data': data}]} if operation == 'pages' else {'data': data})
+                    if operation == 'sync':
+                        result = self.client.submit_scrape_task_sync(ScrapeRequestDto(
+                            'https://target.invalid', formats=['html', 'markdown']))
+                    elif operation == 'result':
+                        result = self.client.get_scrape_task_result('task')
+                    else:
+                        result = self.client.list_crawl_pages('crawl')
+                    content = result.data[0].data if operation == 'pages' else result.data
+                    self.assertEqual(content.get_html().encode('utf-8'), value.encode('utf-8'))
+                    self.assertEqual(content.get_markdown().encode('utf-8'), value.encode('utf-8'))
+                    self.assertEqual(self.request.call_count, 1)
 
     def test_empty_absent_and_referenced_inline_bytes_remain_distinct(self):
         for field, getter in (('pdf', 'get_pdf'), ('screenshot', 'get_screenshot'), ('rawData', 'get_raw_data')):
@@ -421,6 +443,16 @@ class ClientTests(unittest.TestCase):
         with self.assertRaises(NstDataApiError) as error:
             self.client.wait_for_crawl('id')
         self.assertEqual(error.exception.kind, 'invalid_response')
+
+    def test_exported_expired_status_stops_waiting_after_one_request(self):
+        self.assertEqual(TaskStatus.EXPIRED, 'expired')
+        for operation in (self.client.wait_for_scrape, self.client.wait_for_crawl):
+            with self.subTest(operation=operation.__name__):
+                self.request.reset_mock()
+                self.reply({'status': 'expired'})
+                self.assertEqual(operation('known-task', poll_interval=0).status, TaskStatus.EXPIRED)
+                self.assertEqual(self.request.call_count, 1)
+                self.assertEqual(self.request.call_args.args[0], 'GET')
 
     def test_wait_budget_between_calls(self):
         self.reply({'status': 'processing'})

@@ -93,7 +93,7 @@ with NstDataClient(os.environ['NSTDATA_API_TOKEN']) as client:
 
 内联内容存在时优先使用，包括空文本／空字节；否则 getter 下载相应不透明引用，并缓存成功结果。失败读取不缓存。每个 getter 支持按次覆盖本地 `timeout`。原始数据为字节，不代表结构化 JSON 提取。
 
-内联 PDF／截图按 Base64 解码，内联原始文本按 UTF-8 编码。`read_storage(st)` 直接读取引用字节。HTML／Markdown 引用下载须为有效 UTF-8；原始字节读取保留响应内容。
+内联 PDF／截图按 Base64 解码，内联原始文本按 UTF-8 编码。`read_storage(st)` 直接读取引用字节。内联 HTML／Markdown 拒绝无效 Unicode，引用下载须为有效 UTF-8；原始字节读取保留响应内容。
 
 向下游传递内容时保留 `page.url`、`page.taskId`、状态／成功标记、`data.metadata` 和 `data.truncated`。正文缺失是 `None`，不是空正文。`truncated=True` 表示服务内容不完整，缺失标记表示未知。示例仅当此标记明确为 `True` 时向 stderr 提示，保留返回的正文和成功结果。同步结果的可选 `id` 只是诊断标识，不保证能通过异步查询接口再次取得结果。
 

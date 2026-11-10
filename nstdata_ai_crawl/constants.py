@@ -14,6 +14,7 @@ class TaskStatus:
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+    EXPIRED = "expired"
     SCRAPING = "scraping"  # crawl 会话仍在抓取中
 
 class ActionType:
